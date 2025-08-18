@@ -25,7 +25,8 @@ app.post('/api/v1/signup', async (c) => {
 		const user = await prisma.user.create({
 			data: {
 				email: body.email,
-				password: body.password
+				password: body.password,
+				name: body.name
 			}
 		});
 		const token = await sign({ id: user.id }, c.env.JWT_SECRET);
@@ -33,7 +34,7 @@ app.post('/api/v1/signup', async (c) => {
 	} catch(e) {
     console.error(e);
 		c.status(403);
-		return c.json({ error: "error while signing up" });
+		return c.json({ error: "Invalid" });
 	}
 })
 
@@ -44,19 +45,25 @@ app.post('/api/v1/signin', async(c) => {
 	}).$extends(withAccelerate());
 
 	const body = await c.req.json();
-	const user = await prisma.user.findUnique({
-		where: {
-			email: body.email
+	try {
+		const user = await prisma.user.findFirst({
+			where: {
+				email: body.email,
+				password: body.password
+			}
+		})
+		if(!user){
+			c.status(403);
+			return c.json({error: "User doesn't exist!"});
 		}
-	});
 
-	if(!user){
-		c.status(403);
-		return (c.json({error: "User not found!"}));
+		const token = await sign({ id: user.id }, c.env.JWT_SECRET);
+		return c.text(token);
+
+	} catch (error) {
+		c.status(411)
+		return c.text("Invalid request!")
 	}
-
-	const jwt = await sign({id: user.id}, c.env.JWT_SECRET);
-	return c.json({jwt});
 })
 
 export default app
